@@ -51,19 +51,17 @@ class matrix_diag;
 
 template<typename T>
 class matrix_t_ {
-public:
+protected:
+    std::size_t height;
     std::size_t width;
     std::vector<T> data;
-    std::size_t height;
 
+public:
     matrix_t_(int height, int width) : height(height), width(width) {}
 
     virtual T &operator()(std::size_t const &, std::size_t const &) = 0;
 
     virtual const T &operator()(std::size_t const &, std::size_t const &) const = 0;
-
-
-public:
 
     virtual void print() {
         for (std::size_t i = 0; i < height; i++) {
@@ -96,7 +94,6 @@ public:
 
 template<typename T>
 class matrix_dense : public matrix_t_<T> {
-private:
 
 public:
     matrix_dense(int height, int width) : matrix_t_<T>(height, width) {
@@ -134,17 +131,17 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
-        matrix_dense<T> result(m1.height, m1.width);
-        for (std::size_t i = 0; i < m1.height; i++)
-            for (std::size_t j = 0; j < m1.width; j++)
+        matrix_dense<T> result(this->height, this->width);
+        for (std::size_t i = 0; i < this->height; i++)
+            for (std::size_t j = 0; j < this->width; j++)
                 result(i, j) = (*this)(i, j) + (m1)(i, j);
         return std::make_unique<matrix_dense<T>>(result);
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
-        matrix_dense<T> result(m1.height, m1.width);
+        matrix_dense<T> result(this->height, this->width);
         for (std::size_t i = 0; i < result.height; i++)
-            for (std::size_t j = 0; j < m1.width; j++)
+            for (std::size_t j = 0; j < this->width; j++)
                 result(i, j) = (*this)(i, j) + (m1)(i, j);
         return std::make_unique<matrix_dense<T>>(result);
     }
@@ -230,19 +227,19 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
-        matrix_triangulaire_sup<T> result(this->height, this->width, m1.defaultVal);
-        for (std::size_t i = 0; i < m1.height; i++) {
-            for (std::size_t j = i; j < m1.width; j++)
+        matrix_triangulaire_sup<T> result(this->height, this->width, m1.getDefaultVal());
+        for (std::size_t i = 0; i < this->height; i++) {
+            for (std::size_t j = i; j < this->width; j++)
                 result(i, j) = m1(i, j) + (*this)(i, j);
         }
-        result.valInf += m1.defaultVal;
+        result.valInf += m1.getDefaultVal();
         return std::make_unique<matrix_triangulaire_sup<T>>(result);
     }
 };
 
 template<typename T>
 class matrix_diag : public matrix_t_<T> {
-public:
+private:
     T defaultVal;
 
 public:
@@ -310,7 +307,12 @@ public:
         matrix_diag<T> result(m1);
         for (std::size_t i = 0; i < this->data.size(); i++)
             result.data[i] += this->data[i];
+        result.defaultVal += this->defaultVal;
         return std::make_unique<matrix_diag<T>>(result);
+    }
+
+    T getDefaultVal() const {
+        return defaultVal;
     }
 };
 
@@ -323,15 +325,16 @@ void testPerformance() {
     auto trace = m_dense.trace();
     auto end = std::chrono::steady_clock::now();
 
-    std::cout << "Trace matrix dense : "
-              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+    std::cout << "Trace matrix dense : " << trace << std::endl
+              << "Calculated in " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
               << " µs" << std::endl;
 
     start = std::chrono::steady_clock::now();
     trace = m_triang.trace();
     end = std::chrono::steady_clock::now();
 
-    std::cout << "Trace matrix triang sup : "
+    std::cout << "Trace matrix triang sup : " << trace << std::endl
+              << "Calculated in "
               << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
               << " µs" << std::endl;
 
@@ -339,7 +342,8 @@ void testPerformance() {
     trace = m_diag.trace();
     end = std::chrono::steady_clock::now();
 
-    std::cout << "Trace matrix diagonal : "
+    std::cout << "Trace matrix diagonal : " << trace << std::endl
+              << "Calculated in "
               << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
               << " µs" << std::endl;
 }
