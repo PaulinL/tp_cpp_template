@@ -37,16 +37,41 @@ un objet polymorphe depuis cette fonction membre ?
 #include <vector>
 #include <chrono>
 #include <ctime>
+#include <memory>
+#include <numeric>
+
+template<typename T>
+class matrix_dense;
+
+template<typename T>
+class matrix_triangulaire_sup;
+
+template<typename T>
+class matrix_diag;
 
 template<typename T>
 class matrix_t_ {
-protected:
-    std::size_t height, width;
+public:
+    std::size_t width;
+    std::vector<T> data;
+    std::size_t height;
 
     matrix_t_(int height, int width) : height(height), width(width) {}
 
     virtual T &operator()(std::size_t const &, std::size_t const &) = 0;
 
+    virtual const T &operator()(std::size_t const &, std::size_t const &) const = 0;
+
+
+public:
+
+    virtual void print() {
+        for (std::size_t i = 0; i < height; i++) {
+            for (std::size_t j = 0; j < width; j++)
+                std::cout << (*this)(i, j) << "\t";
+            std::cout << std::endl;
+        }
+    }
 
     virtual T trace() {
         T sum = {};
@@ -56,27 +81,26 @@ protected:
         return sum;
     }
 
-public:
-    auto &operator+(matrix_t_<T> &);
+    virtual std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m1, const matrix_t_<T> &m2) = 0;
 
-    virtual void print() {
-        for (std::size_t i = 0; i < height; i++) {
-            for (std::size_t j = 0; j < width; j++)
-                std::cout << (*this)(i, j) << "\t";
-            std::cout << std::endl;
-        }
-    }
+    virtual std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m) const = 0;
+
+    virtual std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m) const = 0;
+
+    virtual std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m) const = 0;
+
+    virtual std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m) const = 0;
+
 };
 
 
 template<typename T>
 class matrix_dense : public matrix_t_<T> {
 private:
-    std::vector<T> data;
 
 public:
     matrix_dense(int height, int width) : matrix_t_<T>(height, width) {
-        data = std::vector<T>(height * width);
+        this->data = std::vector<T>(height * width);
     }
 
     T &operator()(std::size_t const &row, std::size_t const &col) override {
@@ -85,12 +109,50 @@ public:
         else
             throw std::out_of_range("Out of range.");
     }
+
+    const T &operator()(std::size_t const &row, std::size_t const &col) const override {
+        if (row < this->height && col < this->width)
+            return this->data[row + (col * this->height)];
+        else
+            throw std::out_of_range("Out of range.");
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m1, const matrix_t_<T> &m2) override {
+        return m1.add(m2);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m) const override {
+        return m.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        matrix_dense<T> result(m1);
+        for (std::size_t i = 0; i < m1.height; i++)
+            for (std::size_t j = 0; j < m1.width; j++)
+                result(i, j) += (*this)(i, j);
+        return std::make_unique<matrix_dense<T>>(result);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        matrix_dense<T> result(m1.height, m1.width);
+        for (std::size_t i = 0; i < m1.height; i++)
+            for (std::size_t j = 0; j < m1.width; j++)
+                result(i, j) = (*this)(i, j) + (m1)(i, j);
+        return std::make_unique<matrix_dense<T>>(result);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        matrix_dense<T> result(m1.height, m1.width);
+        for (std::size_t i = 0; i < result.height; i++)
+            for (std::size_t j = 0; j < m1.width; j++)
+                result(i, j) = (*this)(i, j) + (m1)(i, j);
+        return std::make_unique<matrix_dense<T>>(result);
+    }
 };
 
 template<typename T>
 class matrix_triangulaire_sup : public matrix_t_<T> {
 private:
-    std::vector<T> data;
     T valInf;
 
 public:
@@ -100,10 +162,21 @@ public:
             size = (width * (width + 1) / 2);
         else
             size = (width * (width + 1) / 2) - (std::abs(height - width) * ((std::abs(height - width) + 1)) / 2);
-        data = std::vector<T>(size);
+        this->data = std::vector<T>(size);
     }
 
     T &operator()(std::size_t const &row, std::size_t const &col) override {
+        if (row < this->height && col < this->width) {
+            if (row > col)
+                return valInf;
+            else {
+                return this->data[col + row * this->width - (row * (row + 1)) / 2];
+            }
+        } else
+            throw std::out_of_range("Out of range.");
+    }
+
+    const T &operator()(std::size_t const &row, std::size_t const &col) const override {
         if (row < this->height && col < this->width) {
             if (row > col)
                 return valInf;
@@ -133,17 +206,48 @@ public:
             std::cout << std::endl;
         }
     }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m1, const matrix_t_<T> &m2) override {
+        return m1.add(m2);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m) const override {
+        return m.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        return m1.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        matrix_triangulaire_sup<T> result(m1);
+        for (std::size_t i = 0; i < m1.height; i++) {
+            for (std::size_t j = i; j < m1.width; j++)
+                result(i, j) += (*this)(i, j);
+        }
+        result.valInf += this->valInf;
+        return std::make_unique<matrix_triangulaire_sup<T>>(result);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        matrix_triangulaire_sup<T> result(this->height, this->width, m1.defaultVal);
+        for (std::size_t i = 0; i < m1.height; i++) {
+            for (std::size_t j = i; j < m1.width; j++)
+                result(i, j) = m1(i, j) + (*this)(i, j);
+        }
+        result.valInf += m1.defaultVal;
+        return std::make_unique<matrix_triangulaire_sup<T>>(result);
+    }
 };
 
 template<typename T>
 class matrix_diag : public matrix_t_<T> {
-private:
-    std::vector<T> data;
+public:
     T defaultVal;
 
 public:
     matrix_diag(int height, int width, T defaultVal) : matrix_t_<T>(height, width), defaultVal(defaultVal) {
-        data = std::vector<T>(std::min(height, width));
+        this->data = std::vector<T>(std::min(height, width));
     }
 
     T &operator()(std::size_t const &row, std::size_t const &col) override {
@@ -157,11 +261,20 @@ public:
             throw std::out_of_range("Out of range.");
     }
 
+    const T &operator()(std::size_t const &row, std::size_t const &col) const override {
+        if (row < this->height && col < this->width) {
+            if (row != col)
+                return defaultVal;
+            else {
+                return this->data[row];
+            }
+        } else
+            throw std::out_of_range("Out of range.");
+    }
+
+
     T trace() override {
-        T sum = {};
-        for (auto const &n : this->data)
-            sum += n;
-        return sum;
+        return std::accumulate(this->data.begin(), this->data.end(), 0);
     }
 
 
@@ -176,51 +289,84 @@ public:
             std::cout << std::endl;
         }
     }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m1, const matrix_t_<T> &m2) override {
+        return m1.add(m2);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_t_<T> &m) const override {
+        return m.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        return m1.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        return m1.add(*this);
+    }
+
+    std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        matrix_diag<T> result(m1);
+        for (std::size_t i = 0; i < this->data.size(); i++)
+            result.data[i] += this->data[i];
+        return std::make_unique<matrix_diag<T>>(result);
+    }
 };
 
-template<typename T>
-auto &matrix_t_<T>::operator+(matrix_t_<T> &m1) {
-    auto result = new matrix_dense<T>(std::max(m1.height, this->height), std::max(m1.width, this->width));
-    for (std::size_t i = 0; i < result->height; i++)
-        for (std::size_t j = 0; j < result->width; j++)
-            (*result)(i, j) = m1(i, j) + (*this)(i, j);
-    return *result;
+void testPerformance() {
+    matrix_dense<int> m_dense = {20000, 20000};
+    matrix_triangulaire_sup<int> m_triang = {20000, 20000, 0};
+    matrix_diag<int> m_diag = {20000, 20000, 0};
+
+    auto start = std::chrono::steady_clock::now();
+    auto trace = m_dense.trace();
+    auto end = std::chrono::steady_clock::now();
+
+    std::cout << "Trace matrix dense : "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+              << " µs" << std::endl;
+
+    start = std::chrono::steady_clock::now();
+    trace = m_triang.trace();
+    end = std::chrono::steady_clock::now();
+
+    std::cout << "Trace matrix triang sup : "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+              << " µs" << std::endl;
+
+    start = std::chrono::steady_clock::now();
+    trace = m_diag.trace();
+    end = std::chrono::steady_clock::now();
+
+    std::cout << "Trace matrix diagonal : "
+              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+              << " µs" << std::endl;
 }
 
 
 int main() {
-    matrix_triangulaire_sup<int> m_triang = {4, 4, 1};
 
-    m_triang(0, 0) = 10;
-    m_triang(0, 1) = 11;
-    //m_triang(1, 0) = 12;
-    m_triang(1, 1) = 13;
-    m_triang(2, 2) = 13;
 
-    m_triang.print();
+    // testPerformance();
 
-    std::cout << m_triang.trace() << std::endl;
+    matrix_dense<int> m_dense(0, 0);
+    matrix_diag<int> m_dense1(4, 4, 4);
+    matrix_diag<int> m_dense2(4, 4, 1);
 
-    matrix_diag<int> m_diag = {4, 4, 1};
+    m_dense1(1, 1) = 3;
+    m_dense1(1, 2) = 3;
 
-    m_diag(0, 0) = 10;
-    m_diag(1, 1) = 11;
-    m_diag(2, 2) = 13;
-    m_diag(3, 3) = 13;
+    m_dense2(1, 1) = 4;
+    m_dense2(1, 3) = 4;
 
-    m_diag.print();
+    m_dense1.print();
+    std::cout << std::endl;
+    m_dense2.print();
+    std::cout << std::endl;
+    auto r = m_dense.add(m_dense1, m_dense2);
+    r->print();
 
-    std::cout << m_diag.trace() << std::endl;
-
-    auto m3 = m_triang + m_diag;
-    m3.print();
-
-    /*auto begin = std::chrono::high_resolution_clock::now();
-    auto trace = m_triang.trace();
-    auto end = std::chrono::high_resolution_clock::now();
-    auto dur = end - begin;
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
-    std::cout << ms << std::endl;*/
 
     return 0;
 }
