@@ -17,6 +17,10 @@ L'objectif est d'écrire une hiérarchie de classe de matrice: matrice dense, tr
 5. En utilisant std::chrono, effetuer des mesures de performances de l'implémentation de trace() et print() 
 dans le cas des matrices diagonales et triangulaires pour des tailles de matrices croissantes. Commenter les résultats
 obtenus.
+  Lorsque les matrices deviennent plus grande, on obtient naturellement un temps de calcul plus long pour la trace.
+ Cependant, on remarque le calcul de la trace de la matrice triangulaire superieur devient vite beaucoup plus long
+ que celui de la matrice diagonale. En effet, Nous faisons beaucoup plus d'appels aux valeurs contenues dans la matrice
+ diagonale car la partie haute de celle-ci contient des valeurs inconnues contrairement a la matrice triangulaire.
 
 6. Rendre trace() et print() virtuelle dans matrix_t_ et les ré-implémenter pour les classes filles
 
@@ -36,9 +40,10 @@ un objet polymorphe depuis cette fonction membre ?
 #include <iostream>
 #include <vector>
 #include <chrono>
-#include <ctime>
 #include <memory>
 #include <numeric>
+#include <complex>
+
 
 template<typename T>
 class matrix_dense;
@@ -317,60 +322,73 @@ public:
 };
 
 void testPerformance() {
-    matrix_dense<int> m_dense = {20000, 20000};
-    matrix_triangulaire_sup<int> m_triang = {20000, 20000, 0};
-    matrix_diag<int> m_diag = {20000, 20000, 0};
 
-    auto start = std::chrono::steady_clock::now();
-    auto trace = m_dense.trace();
-    auto end = std::chrono::steady_clock::now();
+    for (unsigned int i = 10; i <= 14; i++) {
+        int size = std::pow(2, i);
+        matrix_dense<int> m_dense = {size, size};
+        matrix_triangulaire_sup<int> m_triang = {size, size, 0};
+        matrix_diag<int> m_diag = {size, size, 0};
 
-    std::cout << "Trace matrix dense : " << trace << std::endl
-              << "Calculated in " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-              << " µs" << std::endl;
+        std::cout << "======SIZE " << size << 'x' << size << "========" << std::endl;
 
-    start = std::chrono::steady_clock::now();
-    trace = m_triang.trace();
-    end = std::chrono::steady_clock::now();
+        auto start = std::chrono::steady_clock::now();
+        auto trace = m_dense.trace();
+        auto end = std::chrono::steady_clock::now();
 
-    std::cout << "Trace matrix triang sup : " << trace << std::endl
-              << "Calculated in "
-              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-              << " µs" << std::endl;
+        std::cout << "Trace matrix dense of : " << trace << ", calculated in "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+                  << " µs" << std::endl;
 
-    start = std::chrono::steady_clock::now();
-    trace = m_diag.trace();
-    end = std::chrono::steady_clock::now();
+        start = std::chrono::steady_clock::now();
+        trace = m_triang.trace();
+        end = std::chrono::steady_clock::now();
 
-    std::cout << "Trace matrix diagonal : " << trace << std::endl
-              << "Calculated in "
-              << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
-              << " µs" << std::endl;
+        std::cout << "Trace matrix triang sup : " << trace << ", calculated in "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+                  << " µs" << std::endl;
+        start = std::chrono::steady_clock::now();
+        trace = m_diag.trace();
+        end = std::chrono::steady_clock::now();
+
+        std::cout << "Trace matrix diagonal : " << trace << ", calculated in "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+                  << " µs" << std::endl;
+
+        std::cout << std::endl;
+    }
 }
 
 
 int main() {
 
+    testPerformance();
 
-    // testPerformance();
+    /*
+        ======SIZE 1024x1024========
+        Trace matrix dense of : 0, calculated in 51 µs
+        Trace matrix triang sup : 0, calculated in 37 µs
+        Trace matrix diagonal : 0, calculated in 11 µs
 
-    matrix_dense<int> m_dense(0, 0);
-    matrix_diag<int> m_dense1(4, 4, 4);
-    matrix_diag<int> m_dense2(4, 4, 1);
+        ======SIZE 2048x2048========
+        Trace matrix dense of : 0, calculated in 125 µs
+        Trace matrix triang sup : 0, calculated in 61 µs
+        Trace matrix diagonal : 0, calculated in 20 µs
 
-    m_dense1(1, 1) = 3;
-    m_dense1(1, 2) = 3;
+        ======SIZE 4096x4096========
+        Trace matrix dense of : 0, calculated in 244 µs
+        Trace matrix triang sup : 0, calculated in 133 µs
+        Trace matrix diagonal : 0, calculated in 42 µs
 
-    m_dense2(1, 1) = 4;
-    m_dense2(1, 3) = 4;
+        ======SIZE 8192x8192========
+        Trace matrix dense of : 0, calculated in 472 µs
+        Trace matrix triang sup : 0, calculated in 288 µs
+        Trace matrix diagonal : 0, calculated in 80 µs
 
-    m_dense1.print();
-    std::cout << std::endl;
-    m_dense2.print();
-    std::cout << std::endl;
-    auto r = m_dense.add(m_dense1, m_dense2);
-    r->print();
-
+        ======SIZE 16384x16384========
+        Trace matrix dense of : 0, calculated in 1413 µs
+        Trace matrix triang sup : 0, calculated in 828 µs
+        Trace matrix diagonal : 0, calculated in 166 µs
+     */
 
     return 0;
 }
