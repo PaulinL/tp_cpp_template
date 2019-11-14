@@ -94,6 +94,13 @@ public:
 
     virtual std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m) const = 0;
 
+    size_t getHeight() const {
+        return height;
+    }
+
+    size_t getWidth() const {
+        return width;
+    }
 };
 
 
@@ -128,6 +135,8 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_dense<T> result(m1);
         for (std::size_t i = 0; i < m1.height; i++)
             for (std::size_t j = 0; j < m1.width; j++)
@@ -136,6 +145,8 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_dense<T> result(this->height, this->width);
         for (std::size_t i = 0; i < this->height; i++)
             for (std::size_t j = 0; j < this->width; j++)
@@ -144,6 +155,8 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_dense<T> result(this->height, this->width);
         for (std::size_t i = 0; i < result.height; i++)
             for (std::size_t j = 0; j < this->width; j++)
@@ -218,10 +231,14 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         return m1.add(*this);
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_triangulaire_sup<T> result(m1);
         for (std::size_t i = 0; i < m1.height; i++) {
             for (std::size_t j = i; j < m1.width; j++)
@@ -232,6 +249,8 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_triangulaire_sup<T> result(this->height, this->width, m1.getDefaultVal());
         for (std::size_t i = 0; i < this->height; i++) {
             for (std::size_t j = i; j < this->width; j++)
@@ -301,14 +320,20 @@ public:
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_dense<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         return m1.add(*this);
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_triangulaire_sup<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         return m1.add(*this);
     }
 
     std::unique_ptr<matrix_t_<T>> add(const matrix_diag<T> &m1) const override {
+        if (m1.getHeight() != this->height || m1.getWidth() != this->width)
+            throw std::runtime_error("matrix are not the same size.");
         matrix_diag<T> result(m1);
         for (std::size_t i = 0; i < this->data.size(); i++)
             result.data[i] += this->data[i];
@@ -389,6 +414,90 @@ int main() {
         Trace matrix triang sup : 0, calculated in 828 µs
         Trace matrix diagonal : 0, calculated in 166 µs
      */
+
+    matrix_dense<int> mtxDense(4, 4);
+    mtxDense(0, 0) = 1;
+    mtxDense(0, 1) = 2;
+    mtxDense(0, 2) = 3;
+    mtxDense(0, 3) = 4;
+    mtxDense(1, 0) = 5;
+    mtxDense(1, 1) = 6;
+    mtxDense(1, 2) = 7;
+    mtxDense(1, 3) = 8;
+    mtxDense(2, 0) = 9;
+    mtxDense(2, 1) = 10;
+    mtxDense(2, 2) = 11;
+    mtxDense(2, 3) = 12;
+    mtxDense(3, 0) = 13;
+    mtxDense(3, 1) = 14;
+    mtxDense(3, 2) = 15;
+    mtxDense(3, 3) = 16;
+
+    matrix_triangulaire_sup<int> mtxTriangSup(4, 4, 0);
+    mtxTriangSup(0, 0) = 1;
+    mtxTriangSup(0, 1) = 2;
+    mtxTriangSup(0, 2) = 3;
+    mtxTriangSup(0, 3) = 4;
+    mtxTriangSup(1, 1) = 5;
+    mtxTriangSup(1, 2) = 6;
+    mtxTriangSup(1, 3) = 7;
+    mtxTriangSup(2, 2) = 8;
+    mtxTriangSup(2, 3) = 9;
+    mtxTriangSup(3, 3) = 10;
+
+    matrix_diag<int> mtxDiag(4, 4, 0);
+    mtxDiag(0, 0) = 1;
+    mtxDiag(1, 1) = 2;
+    mtxDiag(2, 2) = 3;
+    mtxDiag(3, 3) = 4;
+
+    std::cout << "===DENSE + DENSE===" << std::endl;
+    mtxDense.print();
+    std::cout << "\t+" << std::endl;
+    mtxDense.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxDense, mtxDense)->print();
+    std::cout << std::endl;
+
+    std::cout << "===DENSE + TRIANG===" << std::endl;
+    mtxDense.print();
+    std::cout << "\t+" << std::endl;
+    mtxTriangSup.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxDense, mtxTriangSup)->print();
+    std::cout << std::endl;
+
+    std::cout << "===DENSE + DIAG===" << std::endl;
+    mtxDense.print();
+    std::cout << "\t+" << std::endl;
+    mtxDiag.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxDense, mtxDiag)->print();
+    std::cout << std::endl;
+
+    std::cout << "===TRIANG + TRIANG===" << std::endl;
+    mtxTriangSup.print();
+    std::cout << "\t+" << std::endl;
+    mtxTriangSup.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxTriangSup, mtxTriangSup)->print();
+    std::cout << std::endl;
+
+    std::cout << "===TRIANG + DIAG===" << std::endl;
+    mtxTriangSup.print();
+    std::cout << "\t+" << std::endl;
+    mtxDiag.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxTriangSup, mtxDiag)->print();
+    std::cout << std::endl;
+
+    std::cout << "===DIAG + DIAG===" << std::endl;
+    mtxDiag.print();
+    std::cout << "\t+" << std::endl;
+    mtxDiag.print();
+    std::cout << "\t=" << std::endl;
+    mtxDense.add(mtxDiag, mtxDiag)->print();
+    std::cout << std::endl;
 
     return 0;
 }
